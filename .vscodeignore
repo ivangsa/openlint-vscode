@@ -1,5 +1,7 @@
 **
 !package.json
 !README.md
+!LICENSE
+!CHANGELOG.md
 !dist/node/extension.js
 !dist/web/extension.js

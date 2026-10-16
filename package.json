@@ -3,8 +3,21 @@
   "displayName": "OpenLint",
   "description": "Lint YAML files with OpenLint in VS Code desktop and web.",
   "version": "0.0.1",
-  "publisher": "local",
+  "publisher": "openlint",
+  "license": "Apache-2.0",
   "private": true,
+  "author": {
+    "name": "Iván García Sainz-Aja",
+    "url": "https://github.com/ivangsa"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openlint/openlint-vscode.git"
+  },
+  "bugs": {
+    "url": "https://github.com/openlint/openlint-vscode/issues"
+  },
+  "homepage": "https://github.com/openlint/openlint-vscode",
   "packageManager": "pnpm@11.23.0",
   "engines": {
     "node": ">=22.0.0",
@@ -241,8 +254,77 @@
     "watch:web": "node esbuild.mjs --watch --target=web",
     "open-in-browser": "pnpm run compile:web && vscode-test-web --browser chromium --extensionDevelopmentPath=. ./fixtures/web-workspace",
     "typecheck": "tsc --noEmit",
-    "package": "vsce package --no-dependencies --allow-missing-repository --skip-license",
+    "package": "vsce package --no-dependencies",
     "vscode:prepublish": "pnpm run build"
+  },
+  "release": {
+    "branches": [
+      "main"
+    ],
+    "tagFormat": "v${version}",
+    "plugins": [
+      [
+        "@semantic-release/commit-analyzer",
+        {
+          "preset": "conventionalcommits",
+          "releaseRules": [
+            {
+              "breaking": true,
+              "release": "major"
+            },
+            {
+              "type": "feat",
+              "release": "minor"
+            },
+            {
+              "type": "fix",
+              "release": "patch"
+            },
+            {
+              "type": "perf",
+              "release": false
+            }
+          ]
+        }
+      ],
+      [
+        "@semantic-release/release-notes-generator",
+        {
+          "preset": "conventionalcommits"
+        }
+      ],
+      "@semantic-release/changelog",
+      [
+        "@semantic-release/npm",
+        {
+          "npmPublish": false
+        }
+      ],
+      [
+        "@semantic-release/exec",
+        {
+          "prepareCmd": "bash .github/scripts/publish-marketplaces.sh"
+        }
+      ],
+      [
+        "@semantic-release/git",
+        {
+          "assets": [
+            "package.json",
+            "CHANGELOG.md"
+          ],
+          "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+        }
+      ],
+      [
+        "@semantic-release/github",
+        {
+          "assets": [
+            "*.vsix"
+          ]
+        }
+      ]
+    ]
   },
   "dependencies": {
     "@openlint/openlint-core": "link:../openlint/packages/core",
@@ -257,13 +339,19 @@
     "@stoplight/yaml": "^4.3.0"
   },
   "devDependencies": {
+    "@semantic-release/changelog": "6.0.3",
+    "@semantic-release/exec": "6.0.3",
+    "@semantic-release/git": "10.0.1",
     "@types/node": "^22.5.0",
     "@types/vscode": "^1.92.0",
     "@vscode/test-web": "0.0.81",
     "@vscode/vsce": "3.9.2",
     "buffer": "6.0.3",
+    "conventional-changelog-conventionalcommits": "9.1.0",
     "esbuild": "^0.23.1",
+    "ovsx": "1.2.0",
     "path-browserify": "1.0.1",
+    "semantic-release": "25.0.9",
     "typescript": "^5.5.4"
   }
 }

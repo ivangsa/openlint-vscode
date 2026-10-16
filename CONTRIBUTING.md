@@ -147,9 +147,9 @@ pnpm add -D <package>
 
 ## Release
 
-Marketplace publishing is intentionally out of scope for now. Releases can be produced as local `.vsix` packages.
+The extension is bundled with esbuild, so packaging skips `node_modules`. `@vscode/vsce` and `ovsx` are development dependencies.
 
-The extension is bundled with esbuild, so packaging skips `node_modules`. `@vscode/vsce` is already a development dependency.
+Build a local `.vsix`:
 
 ```bash
 pnpm run package
@@ -170,3 +170,25 @@ Before creating a release package, verify:
 - `pnpm run build` passes.
 - The extension works in the VS Code Extension Development Host.
 - The generated `.vsix` installs locally.
+
+Publishing runs from `.github/workflows/release-to-marketplaces.yml` when commits land on `main`. The version comes from [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) since the last `v*` tag, the same rules the AsyncAPI extension uses:
+
+- `fix:` or `fix(scope):` publishes a patch release.
+- `feat:` or `feat(scope):` publishes a minor release.
+- A breaking change publishes a major release. Write it as `feat!:`, `fix!:`, `refactor!:`, or a `BREAKING CHANGE:` footer.
+- `docs:`, `chore:`, `refactor:`, `test:`, and `perf:` do not publish a release.
+
+Squash-merge pull requests so the PR title is the commit message the workflow reads. `main` must allow GitHub Actions to push the release commit.
+
+There is no `v*` tag yet, and `package.json` is `0.0.1`. The first release anchors that version on the root commit, then applies the bump. A `fix:` becomes `0.0.2`. A `feat:` becomes `0.1.0`. A breaking change becomes `1.0.0`.
+
+The workflow bumps `package.json`, writes `CHANGELOG.md`, publishes the same `.vsix` to both registries, then commits `chore(release): <version>`, tags `v<version>`, and opens a GitHub release. The marketplace publish runs before that commit is pushed. A version that is already on a registry is left as it is, so a failed run can be rerun.
+
+`@openlint/*` is not on npm. The workflow checks out `openlint/openlint`, builds it, and links it at `../openlint`, the same path `package.json` uses locally. Set the `OPENLINT_REF` repository variable to pin that checkout. The default ref is `main`.
+
+The Marketplace publisher id and the Open VSX namespace are the `publisher` field in `package.json` (`openlint`). Create that publisher and namespace before the first publish, then add these repository secrets on `openlint/openlint-vscode`:
+
+- `VSCE_PAT`: Azure DevOps personal access token with the Marketplace (Manage) scope.
+- `OVSX_PAT`: Open VSX access token.
+
+Run the workflow manually and enable "Show the next version and do not publish" to preview the version semantic-release would pick.
