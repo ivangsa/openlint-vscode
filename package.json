@@ -1,0 +1,269 @@
+{
+  "name": "openlint",
+  "displayName": "OpenLint",
+  "description": "Lint YAML files with OpenLint in VS Code desktop and web.",
+  "version": "0.0.1",
+  "publisher": "local",
+  "private": true,
+  "packageManager": "pnpm@11.23.0",
+  "engines": {
+    "node": ">=22.0.0",
+    "vscode": "^1.92.0"
+  },
+  "categories": [
+    "Linters"
+  ],
+  "activationEvents": [
+    "onLanguage:yaml",
+    "onLanguage:json",
+    "onCommand:openlint.enable",
+    "onCommand:openlint.disable",
+    "onCommand:openlint.lintWorkspace",
+    "onCommand:openlint.selectDiffFilter"
+  ],
+  "main": "./dist/node/extension.js",
+  "browser": "./dist/web/extension.js",
+  "extensionKind": [
+    "workspace",
+    "ui"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "openlint.enable",
+        "title": "OpenLint: Enable"
+      },
+      {
+        "command": "openlint.disable",
+        "title": "OpenLint: Disable"
+      },
+      {
+        "command": "openlint.lintWorkspace",
+        "title": "OpenLint: Lint Workspace"
+      },
+      {
+        "command": "openlint.selectDiffFilter",
+        "title": "OpenLint: Select Diff Source"
+      },
+      {
+        "command": "openlint.clearDiffFilter",
+        "title": "OpenLint: Show All Problems"
+      },
+      {
+        "command": "openlint.setDiffBaseBranch",
+        "title": "OpenLint: Set Diff Base Branch"
+      },
+      {
+        "command": "openlint.setSecret",
+        "title": "OpenLint: Set Secret"
+      },
+      {
+        "command": "openlint.deleteSecret",
+        "title": "OpenLint: Delete Secret"
+      }
+    ],
+    "configuration": {
+      "title": "OpenLint",
+      "properties": {
+        "openlint.enabled": {
+          "type": "boolean",
+          "default": true,
+          "scope": "resource",
+          "description": "Enable OpenLint linting."
+        },
+        "openlint.lintOnType": {
+          "type": "boolean",
+          "default": true,
+          "scope": "resource",
+          "description": "Lint YAML files while typing."
+        },
+        "openlint.lintOnSave": {
+          "type": "boolean",
+          "default": true,
+          "scope": "resource",
+          "description": "Lint YAML files when saved."
+        },
+        "openlint.include": {
+          "type": "array",
+          "default": [
+            "**/*.{yaml,yml}"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "scope": "resource",
+          "description": "Glob patterns for YAML files linted by the workspace command."
+        },
+        "openlint.ruleset": {
+          "type": "string",
+          "default": ".openlint.yaml",
+          "scope": "resource",
+          "description": "Ruleset location. Supports workspace-relative paths, absolute file paths, and HTTP(S) URLs. The default looks for .openlint.yaml, then other .openlint.* and .spectral.* ruleset files in the workspace folder. When none of those files exist, the built-in OpenAPI, AsyncAPI, and Arazzo rulesets are used. spectral:oas, spectral:asyncapi, and spectral:arazzo remain valid extends."
+        },
+        "openlint.remoteAuth": {
+          "type": "object",
+          "default": {},
+          "scope": "resource",
+          "description": "Authentication used when downloading HTTP(S) rulesets.",
+          "properties": {
+            "headers": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              },
+              "description": "Static HTTP headers."
+            },
+            "bearerToken": {
+              "type": "string",
+              "description": "Bearer token value."
+            },
+            "bearerTokenSecret": {
+              "type": "string",
+              "description": "VS Code secret key that stores the bearer token."
+            },
+            "basic": {
+              "type": "object",
+              "properties": {
+                "username": {
+                  "type": "string"
+                },
+                "password": {
+                  "type": "string"
+                },
+                "passwordSecret": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "openlint.loaders": {
+          "type": "array",
+          "default": [],
+          "scope": "resource",
+          "description": "Custom resolver loader configuration for ruleset references.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "match": {
+                "type": "string",
+                "description": "URL prefix or JavaScript regular expression source matched against requested references."
+              },
+              "headers": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "bearerToken": {
+                "type": "string"
+              },
+              "bearerTokenSecret": {
+                "type": "string"
+              },
+              "basic": {
+                "type": "object"
+              },
+              "module": {
+                "type": "string",
+                "description": "Desktop-only local JavaScript module path for advanced custom loading."
+              }
+            }
+          }
+        },
+        "openlint.diffFilter": {
+          "type": "string",
+          "enum": [
+            "all",
+            "lastCommit",
+            "mergeBase",
+            "unstaged"
+          ],
+          "default": "all",
+          "scope": "resource",
+          "description": "Git diff source used to filter diagnostics to changed lines."
+        },
+        "openlint.diffBaseBranch": {
+          "type": "string",
+          "default": "main",
+          "scope": "resource",
+          "description": "Base branch or ref used by the merge-base diagnostic filter."
+        },
+        "openlint.outputVerbosity": {
+          "type": "string",
+          "enum": [
+            "off",
+            "error",
+            "info",
+            "debug"
+          ],
+          "default": "off",
+          "scope": "resource",
+          "description": "Controls logging verbosity in the OpenLint output channel."
+        }
+      }
+    },
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "openlint.enable"
+        },
+        {
+          "command": "openlint.disable"
+        },
+        {
+          "command": "openlint.lintWorkspace"
+        },
+        {
+          "command": "openlint.selectDiffFilter"
+        },
+        {
+          "command": "openlint.clearDiffFilter"
+        },
+        {
+          "command": "openlint.setDiffBaseBranch"
+        },
+        {
+          "command": "openlint.setSecret"
+        },
+        {
+          "command": "openlint.deleteSecret"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "pnpm run typecheck && pnpm run compile",
+    "compile": "node esbuild.mjs",
+    "compile:node": "node esbuild.mjs --target=node",
+    "compile:web": "node esbuild.mjs --target=web",
+    "watch": "node esbuild.mjs --watch --target=node",
+    "watch:web": "node esbuild.mjs --watch --target=web",
+    "open-in-browser": "pnpm run compile:web && vscode-test-web --browser chromium --extensionDevelopmentPath=. ./fixtures/web-workspace",
+    "typecheck": "tsc --noEmit",
+    "package": "vsce package --no-dependencies --allow-missing-repository --skip-license",
+    "vscode:prepublish": "pnpm run build"
+  },
+  "dependencies": {
+    "@openlint/openlint-core": "link:../openlint/packages/core",
+    "@openlint/openlint-formats": "link:../openlint/packages/formats",
+    "@openlint/openlint-functions": "link:../openlint/packages/functions",
+    "@openlint/openlint-parsers": "link:../openlint/packages/parsers",
+    "@openlint/openlint-ref-resolver": "link:../openlint/packages/ref-resolver",
+    "@openlint/openlint-ruleset-bundler": "link:../openlint/packages/ruleset-bundler",
+    "@openlint/openlint-ruleset-migrator": "link:../openlint/packages/ruleset-migrator",
+    "@openlint/openlint-rulesets": "link:../openlint/packages/rulesets",
+    "@openlint/openlint-runtime": "link:../openlint/packages/runtime",
+    "@stoplight/yaml": "^4.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "@types/vscode": "^1.92.0",
+    "@vscode/test-web": "0.0.81",
+    "@vscode/vsce": "3.9.2",
+    "buffer": "6.0.3",
+    "esbuild": "^0.23.1",
+    "path-browserify": "1.0.1",
+    "typescript": "^5.5.4"
+  }
+}

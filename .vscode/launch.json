@@ -1,0 +1,32 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/dist/node/**/*.js"
+      ],
+      "preLaunchTask": "pnpm: compile"
+    },
+    {
+      "name": "Run Web Extension",
+      "type": "extensionHost",
+      "debugWebWorkerHost": true,
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}",
+        "--extensionDevelopmentKind=web",
+        "${workspaceFolder}/fixtures/web-workspace"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/dist/web/**/*.js"
+      ],
+      "preLaunchTask": "pnpm: compile web"
+    }
+  ]
+}

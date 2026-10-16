@@ -1,0 +1,8 @@
+{
+  "internalSpectralYaml.enabled": true,
+  "internalSpectralYaml.lintOnType": true,
+  "internalSpectralYaml.lintOnSave": true,
+  "internalSpectralYaml.ruleset": ".spectral.yaml",
+  "internalSpectralYaml.diffFilter": "all",
+  "internalSpectralYaml.outputVerbosity": "debug"
+}

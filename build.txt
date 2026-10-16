@@ -1,0 +1,5 @@
+Executing prepublish script 'npm run vscode:prepublish'...
+
+> internal-spectral-yaml@0.0.1 vscode:prepublish
+> pnpm run compile
+

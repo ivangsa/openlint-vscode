@@ -1,0 +1,5 @@
+**
+!package.json
+!README.md
+!dist/node/extension.js
+!dist/web/extension.js

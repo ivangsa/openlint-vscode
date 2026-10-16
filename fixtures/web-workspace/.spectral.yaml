@@ -1,0 +1,16 @@
+extends: []
+rules:
+  info-contact:
+    description: Info object must have a contact
+    given: $.info
+    severity: error
+    then:
+      field: contact
+      function: truthy
+  info-description:
+    description: Info object must have a description
+    given: $.info
+    severity: warn
+    then:
+      field: description
+      function: truthy
