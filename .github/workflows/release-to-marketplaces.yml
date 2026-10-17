@@ -1,0 +1,144 @@
+# Decides the next version from conventional commits and publishes the extension.
+#
+# On a push to main, a release runs when commits since the last v* tag include:
+# - feat: or feat(scope):  -> minor
+# - fix: or fix(scope):    -> patch
+# - a breaking change      -> major
+#   (feat!:, fix!:, refactor!:, or a BREAKING CHANGE footer)
+# docs:, chore:, refactor:, test:, and perf: do not publish.
+#
+# The first release stays on the 0.x line. When no v* tag exists, the workflow
+# anchors the current package.json version on the root commit. The next feat
+# or fix is calculated from that version instead of jumping to 1.0.0.
+#
+# semantic-release then bumps package.json, publishes the .vsix, commits
+# package.json and CHANGELOG.md, tags v<version>, and opens a GitHub release.
+# Marketplace publish runs before that commit is pushed.
+#
+# Repository secrets:
+# - VSCE_PAT: Azure DevOps PAT with the Marketplace (Manage) scope.
+# - OVSX_PAT: Open VSX access token.
+# The publisher id in package.json must match both accounts.
+#
+# Repository variable (optional):
+# - OPENLINT_REF: git ref of github.com/openlint/openlint to build. Default: main.
+#
+# main must allow GitHub Actions to push the release commit.
+
+name: Release to VS Code Marketplace and Open VSX
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Show the next version and do not publish
+        type: boolean
+        default: false
+
+concurrency:
+  group: release-to-marketplaces
+  cancel-in-progress: false
+
+jobs:
+  releasable:
+    name: Detect conventional commits
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      release: ${{ steps.check.outputs.release }}
+    steps:
+      - name: Checkout extension
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Check commits since the last release
+        id: check
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if bash .github/scripts/has-releasable-commits.sh; then
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No feat, fix, or breaking change since the last release."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  release:
+    name: Release
+    needs: releasable
+    if: needs.releasable.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout extension
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Checkout OpenLint
+        uses: actions/checkout@v7.0.1
+        with:
+          repository: openlint/openlint
+          ref: ${{ vars.OPENLINT_REF || 'main' }}
+          path: .openlint
+
+      - name: Link OpenLint where package.json expects it
+        run: ln -sfn "${GITHUB_WORKSPACE}/.openlint" "${GITHUB_WORKSPACE}/../openlint"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .openlint/.nvmrc
+          cache: pnpm
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Anchor the current version when no release tag exists
+        run: |
+          set -euo pipefail
+          if git describe --tags --abbrev=0 --match 'v[0-9]*' >/dev/null 2>&1; then
+            exit 0
+          fi
+          version="$(node -p "require('./package.json').version")"
+          first="$(git rev-list --max-parents=0 HEAD | head -n 1)"
+          git tag "v${version}" "${first}"
+          echo "No release tag found. Anchored v${version} at ${first}."
+
+      - name: Install extension dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+          DRY_RUN: ${{ inputs.dry_run == true }}
+        run: |
+          set -euo pipefail
+          if [ "${DRY_RUN}" = "true" ]; then
+            pnpm exec semantic-release --dry-run
+          else
+            pnpm exec semantic-release
+          fi
