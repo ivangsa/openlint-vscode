@@ -35,6 +35,7 @@
     "watch:web": "node esbuild.mjs --watch --target=web",
     "open-in-browser": "pnpm run compile:web && vscode-test-web --browser chromium --extensionDevelopmentPath=. ./fixtures/web-workspace",
     "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.cjs",
     "package": "vsce package --no-dependencies",
     "vscode:prepublish": "pnpm run build"
   },

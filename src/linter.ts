@@ -7,6 +7,11 @@ import { RulesetLoader } from './rulesetLoader';
 import { DiffFilterProvider } from './diffFilter';
 import { createDiagnosticAttribution } from './diffAttribution';
 
+export interface LintSnapshot {
+  readonly uri: vscode.Uri;
+  readonly text: string;
+}
+
 export class OpenLintLinter {
   private openlint?: OpenLint;
   private openlintKey?: string;
@@ -20,7 +25,7 @@ export class OpenLintLinter {
     this.rulesetLoader.clear();
   }
 
-  async lint(document: vscode.TextDocument, config: ExtensionConfig): Promise<vscode.Diagnostic[]> {
+  async lint(document: LintSnapshot, config: ExtensionConfig): Promise<vscode.Diagnostic[]> {
     if (!config.enabled) {
       return [];
     }
@@ -30,10 +35,10 @@ export class OpenLintLinter {
     openlint.setRuleset(ruleset);
 
     const source = document.uri.toString(true);
-    const openlintDocument = new Document(document.getText(), Yaml, source);
+    const openlintDocument = new Document(document.text, Yaml, source);
     const results = await openlint.run(openlintDocument, { ignoreUnknownFormat: true });
     const changedLines = await this.diffFilterProvider.getChangedLines(document.uri, config.diffFilter, config.diffBaseBranch);
-    const attribution = changedLines ? createDiagnosticAttribution(document.getText(), changedLines) : undefined;
+    const attribution = changedLines ? createDiagnosticAttribution(document.text, changedLines) : undefined;
 
     return results
       .filter(result => !attribution || attribution.includes(result))

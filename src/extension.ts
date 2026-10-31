@@ -6,9 +6,14 @@ import { OpenLintLinter } from './linter';
 import { Logger, sanitizeText } from './logger';
 import { RulesetLoader } from './rulesetLoader';
 
-let lintTimer: ReturnType<typeof setTimeout> | undefined;
+const lintTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const lintRequests = new Map<string, { id: number; background: boolean }>();
+let nextLintRequest = 0;
+let configGeneration = 0;
+let disposed = false;
 
 export function activate(context: vscode.ExtensionContext): void {
+  disposed = false;
   const diagnostics = vscode.languages.createDiagnosticCollection('openlint');
   const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 80);
   const output = vscode.window.createOutputChannel('OpenLint');
@@ -17,7 +22,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   status.name = 'OpenLint Diff Source';
   status.command = 'openlint.selectDiffFilter';
-  context.subscriptions.push(diagnostics, status, output);
+  context.subscriptions.push(diagnostics, status, output, { dispose: deactivate });
 
   const lintOpenDocument = (document = vscode.window.activeTextEditor?.document) => {
     if (!document || !isLintableDocument(document)) {
@@ -29,10 +34,16 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeTextDocument(event => {
+      invalidateDocument(event.document.uri);
       const config = getConfig(event.document.uri);
       if (config.lintOnType) {
         queueLint(event.document, diagnostics, linter, logger);
       }
+    }),
+    vscode.workspace.onDidCloseTextDocument(document => {
+      // Keep published workspace diagnostics, and let background scan lints finish,
+      // when VS Code releases a document it opened only for the scan.
+      invalidateDocument(document.uri, true);
     }),
     vscode.workspace.onDidSaveTextDocument(document => {
       const config = getConfig(document.uri);
@@ -46,6 +57,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.workspace.onDidChangeConfiguration(event => {
       if (event.affectsConfiguration('openlint')) {
+        invalidateAllLints();
         linter.clearRulesetCache();
         diagnostics.clear();
         updateStatus(status, vscode.window.activeTextEditor?.document.uri);
@@ -125,9 +137,29 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export function deactivate(): void {
-  if (lintTimer) {
-    clearTimeout(lintTimer);
+  disposed = true;
+  invalidateAllLints();
+}
+
+function invalidateDocument(uri: vscode.Uri, keepBackgroundRequest = false): void {
+  const key = uri.toString();
+  const timer = lintTimers.get(key);
+  if (timer !== undefined) {
+    clearTimeout(timer);
   }
+  lintTimers.delete(key);
+  if (!keepBackgroundRequest || !lintRequests.get(key)?.background) {
+    lintRequests.delete(key);
+  }
+}
+
+function invalidateAllLints(): void {
+  configGeneration += 1;
+  for (const timer of lintTimers.values()) {
+    clearTimeout(timer);
+  }
+  lintTimers.clear();
+  lintRequests.clear();
 }
 
 function queueLint(
@@ -137,35 +169,61 @@ function queueLint(
   logger: Logger,
   delay = 350
 ): void {
-  if (!isLintableDocument(document)) {
+  if (disposed || document.isClosed || !isLintableDocument(document)) {
     return;
   }
 
-  if (lintTimer) {
-    clearTimeout(lintTimer);
-  }
-
-  lintTimer = setTimeout(() => {
+  invalidateDocument(document.uri);
+  const key = document.uri.toString();
+  lintTimers.set(key, setTimeout(() => {
+    lintTimers.delete(key);
     void lintDocument(document, diagnostics, linter, logger);
-  }, delay);
+  }, delay));
 }
 
 async function lintDocument(
   document: vscode.TextDocument,
   diagnostics: vscode.DiagnosticCollection,
   linter: OpenLintLinter,
-  logger: Logger
+  logger: Logger,
+  background = false
 ): Promise<void> {
+  if (disposed || document.isClosed) {
+    return;
+  }
+
+  invalidateDocument(document.uri);
+  const key = document.uri.toString();
+  const requestId = ++nextLintRequest;
+  lintRequests.set(key, { id: requestId, background });
+  const version = document.version;
+  const generation = configGeneration;
   const config = getConfig(document.uri);
+  const snapshot = { uri: document.uri, text: document.getText() };
+  const isCurrent = () => !disposed
+    && (background || !document.isClosed)
+    && document.version === version
+    && configGeneration === generation
+    && lintRequests.get(key)?.id === requestId;
 
   try {
     logger.debug(config.outputVerbosity, `Linting document ${document.uri.toString(true)}.`);
-    const problems = await linter.lint(document, config);
+    const problems = await linter.lint(snapshot, config);
+    if (!isCurrent()) {
+      return;
+    }
     diagnostics.set(document.uri, problems);
     logger.info(config.outputVerbosity, `Linted ${document.uri.toString(true)} with ${problems.length} diagnostics.`);
   } catch (error) {
+    if (!isCurrent()) {
+      return;
+    }
     diagnostics.set(document.uri, [configurationDiagnostic(document, error)]);
     logger.error(config.outputVerbosity, `Linting failed for ${document.uri.toString(true)}.`, error);
+  } finally {
+    if (lintRequests.get(key)?.id === requestId) {
+      lintRequests.delete(key);
+    }
   }
 }
 
@@ -176,6 +234,7 @@ async function lintWorkspace(
 ): Promise<void> {
   const activeUri = vscode.window.activeTextEditor?.document.uri;
   const config = getConfig(activeUri);
+  const generation = configGeneration;
   const include = `{${config.include.join(',')}}`;
   const files = await vscode.workspace.findFiles(include, '**/{node_modules,.git}/**');
 
@@ -185,9 +244,15 @@ async function lintWorkspace(
     cancellable: false
   }, async progress => {
     for (let index = 0; index < files.length; index += 1) {
+      if (disposed || configGeneration !== generation) {
+        break;
+      }
       progress.report({ message: `${index + 1}/${files.length}` });
       const document = await vscode.workspace.openTextDocument(files[index]);
-      await lintDocument(document, diagnostics, linter, logger);
+      if (disposed || configGeneration !== generation) {
+        break;
+      }
+      await lintDocument(document, diagnostics, linter, logger, true);
     }
   });
 }

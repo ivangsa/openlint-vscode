@@ -16,6 +16,7 @@ const httpPattern = /^https?:\/\//i;
 export class RulesetLoader {
   private cachedRuleset?: Ruleset;
   private cachedKey?: string;
+  private generation = 0;
 
   constructor(
     private readonly context: ExtensionContext,
@@ -23,11 +24,13 @@ export class RulesetLoader {
   ) {}
 
   clear(): void {
+    this.generation += 1;
     this.cachedRuleset = undefined;
     this.cachedKey = undefined;
   }
 
   async load(documentUri: vscode.Uri, config: ExtensionConfig): Promise<Ruleset> {
+    const generation = this.generation;
     const location = await resolveRulesetLocation(documentUri, config.ruleset);
     const cacheKey = JSON.stringify({
       location: location?.toString(true) ?? 'builtin',
@@ -35,7 +38,7 @@ export class RulesetLoader {
       loaders: config.loaders
     });
 
-    if (this.cachedRuleset && this.cachedKey === cacheKey) {
+    if (generation === this.generation && this.cachedRuleset && this.cachedKey === cacheKey) {
       this.logger.debug(config.outputVerbosity, `Using cached ruleset for ${location ? sanitizeUrl(location.toString(true)) : 'the built-in ruleset'}.`);
       return this.cachedRuleset;
     }
@@ -44,9 +47,11 @@ export class RulesetLoader {
       ? await this.bundle(location, config)
       : this.useBuiltinRuleset(config);
 
-    this.cachedRuleset = ruleset;
-    this.cachedKey = cacheKey;
-    return this.cachedRuleset;
+    if (generation === this.generation) {
+      this.cachedRuleset = ruleset;
+      this.cachedKey = cacheKey;
+    }
+    return ruleset;
   }
 
   async createDocumentResolver(config: ExtensionConfig): Promise<Resolver> {
