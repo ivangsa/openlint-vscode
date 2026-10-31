@@ -5,13 +5,3 @@ dedupePeerDependents: true
 ignoreScripts: true
 verifyStoreIntegrity: true
 saveExact: true
-overrides:
-  "@openlint/openlint-core": "link:../openlint/packages/core"
-  "@openlint/openlint-formats": "link:../openlint/packages/formats"
-  "@openlint/openlint-functions": "link:../openlint/packages/functions"
-  "@openlint/openlint-parsers": "link:../openlint/packages/parsers"
-  "@openlint/openlint-ref-resolver": "link:../openlint/packages/ref-resolver"
-  "@openlint/openlint-ruleset-bundler": "link:../openlint/packages/ruleset-bundler"
-  "@openlint/openlint-ruleset-migrator": "link:../openlint/packages/ruleset-migrator"
-  "@openlint/openlint-rulesets": "link:../openlint/packages/rulesets"
-  "@openlint/openlint-runtime": "link:../openlint/packages/runtime"

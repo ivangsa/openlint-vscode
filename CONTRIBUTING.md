@@ -29,17 +29,11 @@ node -v
 
 ## OpenLint packages
 
-`@openlint/*` is not published to npm yet. This extension links the sibling checkout at `../openlint`. Build that checkout before installing or compiling this extension:
-
-```bash
-cd ../openlint
-node .yarn/releases/yarn-3.5.0.cjs install
-node .yarn/releases/yarn-3.5.0.cjs build
-```
+The extension uses published `@openlint/*` npm packages pinned in `package.json` and `pnpm-lock.yaml`. `pnpm install` installs them; no sibling OpenLint checkout is required.
 
 ## Setup
 
-From Git Bash, with Node.js 22 or newer active, and the sibling OpenLint checkout already built:
+From Git Bash, with Node.js 22 or newer active:
 
 ```bash
 npm install -g pnpm@11.23.0
@@ -184,7 +178,7 @@ There is no `v*` tag yet, and `package.json` is `0.0.1`. The first release ancho
 
 The workflow bumps `package.json`, writes `CHANGELOG.md`, publishes the same `.vsix` to both registries, then commits `chore(release): <version>`, tags `v<version>`, and opens a GitHub release. The marketplace publish runs before that commit is pushed. A version that is already on a registry is left as it is, so a failed run can be rerun.
 
-`@openlint/*` is not on npm. The workflow checks out `openlint/openlint`, builds it, and links it at `../openlint`, the same path `package.json` uses locally. Set the `OPENLINT_REF` repository variable to pin that checkout. The default ref is `main`.
+Release builds use the same published OpenLint packages and lockfile as local builds. Install dependencies with `pnpm install --frozen-lockfile`.
 
 The Marketplace publisher id and the Open VSX namespace are the `publisher` field in `package.json` (`openlint`). Create that publisher and namespace before the first publish, then add these repository secrets on `openlint/openlint-vscode`:
 
