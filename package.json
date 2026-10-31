@@ -26,6 +26,18 @@
   "categories": [
     "Linters"
   ],
+  "scripts": {
+    "build": "pnpm run typecheck && pnpm run compile",
+    "compile": "node esbuild.mjs",
+    "compile:node": "node esbuild.mjs --target=node",
+    "compile:web": "node esbuild.mjs --target=web",
+    "watch": "node esbuild.mjs --watch --target=node",
+    "watch:web": "node esbuild.mjs --watch --target=web",
+    "open-in-browser": "pnpm run compile:web && vscode-test-web --browser chromium --extensionDevelopmentPath=. ./fixtures/web-workspace",
+    "typecheck": "tsc --noEmit",
+    "package": "vsce package --no-dependencies",
+    "vscode:prepublish": "pnpm run build"
+  },
   "activationEvents": [
     "onLanguage:yaml",
     "onLanguage:json",
@@ -244,18 +256,6 @@
         }
       ]
     }
-  },
-  "scripts": {
-    "build": "pnpm run typecheck && pnpm run compile",
-    "compile": "node esbuild.mjs",
-    "compile:node": "node esbuild.mjs --target=node",
-    "compile:web": "node esbuild.mjs --target=web",
-    "watch": "node esbuild.mjs --watch --target=node",
-    "watch:web": "node esbuild.mjs --watch --target=web",
-    "open-in-browser": "pnpm run compile:web && vscode-test-web --browser chromium --extensionDevelopmentPath=. ./fixtures/web-workspace",
-    "typecheck": "tsc --noEmit",
-    "package": "vsce package --no-dependencies",
-    "vscode:prepublish": "pnpm run build"
   },
   "release": {
     "branches": [
