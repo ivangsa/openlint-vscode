@@ -5,6 +5,7 @@ import { DiffFilterProvider } from './diffFilter';
 import { OpenLintLinter } from './linter';
 import { Logger, sanitizeText } from './logger';
 import { RulesetLoader } from './rulesetLoader';
+import type { LintQueueInfo } from './lintTimings';
 
 const lintTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const lintRequests = new Map<string, { id: number; background: boolean }>();
@@ -18,7 +19,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 80);
   const output = vscode.window.createOutputChannel('OpenLint');
   const logger = new Logger(output);
-  const linter = new OpenLintLinter(new RulesetLoader(context, logger), new DiffFilterProvider());
+  const linter = new OpenLintLinter(new RulesetLoader(context, logger), new DiffFilterProvider(), logger);
 
   status.name = 'OpenLint Diff Source';
   status.command = 'openlint.selectDiffFilter';
@@ -175,9 +176,13 @@ function queueLint(
 
   invalidateDocument(document.uri);
   const key = document.uri.toString();
+  const enqueuedAt = performance.now();
   lintTimers.set(key, setTimeout(() => {
     lintTimers.delete(key);
-    void lintDocument(document, diagnostics, linter, logger);
+    void lintDocument(document, diagnostics, linter, logger, false, {
+      debounceMs: delay,
+      waitedMs: performance.now() - enqueuedAt
+    });
   }, delay));
 }
 
@@ -186,7 +191,8 @@ async function lintDocument(
   diagnostics: vscode.DiagnosticCollection,
   linter: OpenLintLinter,
   logger: Logger,
-  background = false
+  background = false,
+  queue?: LintQueueInfo
 ): Promise<void> {
   if (disposed || document.isClosed) {
     return;
@@ -208,7 +214,7 @@ async function lintDocument(
 
   try {
     logger.debug(config.outputVerbosity, `Linting document ${document.uri.toString(true)}.`);
-    const problems = await linter.lint(snapshot, config);
+    const problems = await linter.lint(snapshot, config, queue);
     if (!isCurrent()) {
       return;
     }

@@ -71,3 +71,17 @@ test('an obsolete load cannot overwrite a newer cached ruleset', async () => {
   assert.equal(await loader.load(undefined, config), freshRuleset);
   assert.equal(loads.length, 2);
 });
+
+test('loadWithInfo reports cache miss then hit', async () => {
+  const { loader, loads, config } = setup();
+  const first = loader.loadWithInfo(undefined, config);
+  await Promise.resolve();
+  const ruleset = { version: 'one' };
+  loads[0](ruleset);
+  const miss = await first;
+  assert.equal(miss.ruleset, ruleset);
+  assert.equal(miss.cache, 'miss');
+  const hit = await loader.loadWithInfo(undefined, config);
+  assert.equal(hit.ruleset, ruleset);
+  assert.equal(hit.cache, 'hit');
+});

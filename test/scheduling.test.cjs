@@ -68,7 +68,7 @@ function setup() {
   };
   const module = { exports: {} };
   vm.runInNewContext(code, {
-    module, exports: module.exports, Error,
+    module, exports: module.exports, Error, performance,
     require: name => {
       assert.ok(name in imports, `Unexpected import: ${name}`);
       return imports[name];

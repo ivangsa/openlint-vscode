@@ -60,7 +60,7 @@ The extension sends those credentials as an `Authorization: Basic ...` header an
 
 `remoteAuth` is used only for the configured ruleset URL. Remote references loaded by that ruleset must use an explicit matching `loaders` entry, so ruleset credentials are not sent to arbitrary `$ref` URLs.
 
-Set `openlint.outputVerbosity` to `error`, `info`, or `debug` to write diagnostics to the `OpenLint` output channel. The default is `off`.
+Set `openlint.outputVerbosity` to `error`, `info`, or `debug` to write diagnostics to the `OpenLint` output channel. `debug` also writes one `Lint profile` line per lint with document size, ruleset cache hit or miss, diff mode, debounce queue wait and lag, per-stage timings (ruleset, engine, parse, execution, Git, attribution), diagnostic count, and total time. The default is `off`.
 
 ## Diff Source Switcher
 

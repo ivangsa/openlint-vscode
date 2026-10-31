@@ -6,6 +6,9 @@ import type { ExtensionConfig } from './config';
 import { RulesetLoader } from './rulesetLoader';
 import { DiffFilterProvider } from './diffFilter';
 import { createDiagnosticAttribution } from './diffAttribution';
+import type { Logger } from './logger';
+import { LintTimings } from './lintTimings';
+import type { LintQueueInfo } from './lintTimings';
 
 export interface LintSnapshot {
   readonly uri: vscode.Uri;
@@ -18,31 +21,44 @@ export class OpenLintLinter {
 
   constructor(
     private readonly rulesetLoader: RulesetLoader,
-    private readonly diffFilterProvider: DiffFilterProvider
+    private readonly diffFilterProvider: DiffFilterProvider,
+    private readonly logger: Logger
   ) {}
 
   clearRulesetCache(): void {
     this.rulesetLoader.clear();
   }
 
-  async lint(document: LintSnapshot, config: ExtensionConfig): Promise<vscode.Diagnostic[]> {
+  async lint(document: LintSnapshot, config: ExtensionConfig, queue?: LintQueueInfo): Promise<vscode.Diagnostic[]> {
     if (!config.enabled) {
       return [];
     }
 
-    const ruleset = await this.rulesetLoader.load(document.uri, config);
-    const openlint = await this.getOpenLint(config);
-    openlint.setRuleset(ruleset);
-
     const source = document.uri.toString(true);
-    const openlintDocument = new Document(document.text, Yaml, source);
-    const results = await openlint.run(openlintDocument, { ignoreUnknownFormat: true });
-    const changedLines = await this.diffFilterProvider.getChangedLines(document.uri, config.diffFilter, config.diffBaseBranch);
-    const attribution = changedLines ? createDiagnosticAttribution(document.text, changedLines) : undefined;
+    const timings = new LintTimings(this.logger, config.outputVerbosity, source, document.text, config.diffFilter, queue);
 
-    return results
-      .filter(result => !attribution || attribution.includes(result))
-      .map(result => toDiagnostic(result));
+    try {
+      const { ruleset, cache } = await timings.measure('ruleset', () => this.rulesetLoader.loadWithInfo(document.uri, config));
+      timings.cache = cache;
+      const openlint = await timings.measure('engine', () => this.getOpenLint(config));
+      openlint.setRuleset(ruleset);
+
+      const openlintDocument = timings.measureSync('parse', () => new Document(document.text, Yaml, source));
+      const results = await timings.measure('execution', () => openlint.run(openlintDocument, { ignoreUnknownFormat: true }));
+      const changedLines = await timings.measure('git', () => this.diffFilterProvider.getChangedLines(document.uri, config.diffFilter, config.diffBaseBranch));
+
+      const diagnostics = timings.measureSync('attribution', () => {
+        const attribution = changedLines ? createDiagnosticAttribution(document.text, changedLines) : undefined;
+
+        return results
+          .filter(result => !attribution || attribution.includes(result))
+          .map(result => toDiagnostic(result));
+      });
+      timings.diagnostics = diagnostics.length;
+      return diagnostics;
+    } finally {
+      timings.log();
+    }
   }
 
   private async getOpenLint(config: ExtensionConfig): Promise<OpenLint> {

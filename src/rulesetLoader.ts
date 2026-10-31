@@ -30,6 +30,10 @@ export class RulesetLoader {
   }
 
   async load(documentUri: vscode.Uri, config: ExtensionConfig): Promise<Ruleset> {
+    return (await this.loadWithInfo(documentUri, config)).ruleset;
+  }
+
+  async loadWithInfo(documentUri: vscode.Uri, config: ExtensionConfig): Promise<{ ruleset: Ruleset; cache: 'hit' | 'miss' }> {
     const generation = this.generation;
     const location = await resolveRulesetLocation(documentUri, config.ruleset);
     const cacheKey = JSON.stringify({
@@ -40,7 +44,7 @@ export class RulesetLoader {
 
     if (generation === this.generation && this.cachedRuleset && this.cachedKey === cacheKey) {
       this.logger.debug(config.outputVerbosity, `Using cached ruleset for ${location ? sanitizeUrl(location.toString(true)) : 'the built-in ruleset'}.`);
-      return this.cachedRuleset;
+      return { ruleset: this.cachedRuleset, cache: 'hit' };
     }
 
     const ruleset = location
@@ -51,7 +55,7 @@ export class RulesetLoader {
       this.cachedRuleset = ruleset;
       this.cachedKey = cacheKey;
     }
-    return ruleset;
+    return { ruleset, cache: 'miss' };
   }
 
   async createDocumentResolver(config: ExtensionConfig): Promise<Resolver> {
