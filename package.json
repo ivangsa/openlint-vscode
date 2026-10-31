@@ -2,7 +2,7 @@
   "name": "openlint",
   "displayName": "OpenLint",
   "description": "Lint YAML files with OpenLint in VS Code desktop and web.",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "publisher": "openlint",
   "license": "Apache-2.0",
   "private": true,
